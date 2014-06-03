@@ -47,7 +47,7 @@ using namespace std;
 using namespace cv;
 
 
-#include "../../incrementalTracking/FileIO/FileInOut.h"
+#include "../fileio/FileInOut.h"
 
 
 	const int kptDet_maxCorners=200;
@@ -66,7 +66,8 @@ using namespace cv;
 	const double pnt_dis_threshold=5.0;
 
 	const double static_pnt_cre=3.0;
-	template<class T>
+	
+template<class T>
 static void FromSmall(vector<T>& p,int n,vector<int>& index)
 {
 	int k,j,i;
@@ -92,72 +93,24 @@ void readRcdLst(char* inpf,vector<int>& rcd,map<string,int>& corres)
 {
 	FILE* fp=fopen(inpf,"r");
 	//fopen_s(&fp,inpf,"r");
-
-
-	char tem[100];
-	int rslt;
-	while(fscanf(fp,"%s %d\n",&tem,&rslt)!=EOF)
+	if(fp!=NULL)
 	{
-		string s(tem);
-		if(corres.count(s))
+
+		char tem[100];
+		int rslt;
+		while(fscanf(fp,"%s %d\n",&tem,&rslt)!=EOF)
 		{
-			rcd[corres[s]]=rslt;
-		}
+			string s(tem);
+			if(corres.count(s))
+			{
+				rcd[corres[s]]=rslt;
+			}
 		
-	}
+		}
 	
 
-	fclose(fp);
-}
-
-int main(int argc,char* argv[])
-{
-//	cout<<"whatever"<<endl;
-
-//	getchar();
-	#ifdef _DEBUG
-	_chdir("D:\\DATA\\seiken0502\\sssf");
-	#endif
-	char* inp, *recd;
-
-	inp="allimg.lst";
-
-	recd="recd.lst";
-
-	if(argc>1)
-	{
-		inp=argv[1];
-		recd=argv[2];
+		fclose(fp);
 	}
-
-	vector<string> inpLst=fileIOclass::InVectorString(inp);
-
-	map<string,int> nameIndxCorrespd;
-	for (int i = 0; i < inpLst.size(); i++)
-	{
-		nameIndxCorrespd[inpLst[i]]=i;
-	}
-
-	vector<int> rcdLst;
-	
-	rcdLst.resize(inpLst.size(),-1);
-
-	readRcdLst(recd,rcdLst,nameIndxCorrespd);
-	vector<string> selLst;
-	for (int i = 0; i < rcdLst.size(); i++)
-	{
-		if(rcdLst[i]==1)
-			selLst.push_back(inpLst[i]);
-	}
-
-
-	FILE* fp=fopen("selFrm.lst","w");
-
-	fprintf(fp,"%d\n",selLst.size());
-	for(auto & s:selLst)
-		fprintf(fp,"%s\n",s.c_str());
-	fclose(fp);
-
 }
 
 
@@ -194,6 +147,62 @@ int main_(int argc,char* argv[])
 	rcdLst.resize(inpLst.size(),-1);
 
 	readRcdLst(recd,rcdLst,nameIndxCorrespd);
+	vector<string> selLst;
+
+	for (int i = 0; i < rcdLst.size(); i++)
+	{
+		if(rcdLst[i]==1)
+			selLst.push_back(inpLst[i]);
+	}
+
+
+	FILE* fp=fopen("selFrm.lst","w");
+
+	fprintf(fp,"%d\n",selLst.size());
+	for(auto & s:selLst)
+		fprintf(fp,"%s\n",s.c_str());
+	fclose(fp);
+	return 0;
+}
+
+
+int main(int argc,char* argv[])
+{
+//	cout<<"whatever"<<endl;
+
+//	getchar();
+	#ifdef _DEBUG
+	_chdir("D:\\DATA\\seiken0502\\sssf");
+	#endif
+	char* inp, *recd;
+
+	cout<<"selFrame ~A ~B (A is the list of images, default=allimg.lst) (B is the file for logging, default=new.lst)"<<endl;
+
+	cout<<"press 'f' to change the flag\n press 's' to save\n learn other tricks by yourself"<<endl;
+
+	inp="allimg.lst";
+
+	recd="new.lst";
+
+	if(argc>1)
+	{
+		inp=argv[1];
+		recd=argv[2];
+	}
+
+	vector<string> inpLst=fileIOclass::InVectorString(inp);
+
+	map<string,int> nameIndxCorrespd;
+	for (int i = 0; i < inpLst.size(); i++)
+	{
+		nameIndxCorrespd[inpLst[i]]=i;
+	}
+
+	vector<int> rcdLst;
+	
+	rcdLst.resize(inpLst.size(),-1);
+
+	readRcdLst(recd,rcdLst,nameIndxCorrespd);
 
 	
 	vector<int> bufferRcdLst=vector<int>(rcdLst);
@@ -204,15 +213,18 @@ int main_(int argc,char* argv[])
 	namedWindow("progress",1);
 	namedWindow("monitor",1);
 
-	Mat flagImgs[2];
+	Mat flagImgs[3];
 	flagImgs[1]=Mat(Size(200,200),CV_8UC3,Scalar(87,1955,127));
 	flagImgs[0]=Mat(Size(200,200),CV_8UC3,Scalar(155,129,243));
+	flagImgs[2]=Mat(Size(200,200),CV_8UC3,Scalar(255,255,255));
 
-	bool flagOkOrNot=true;
+
+	int flagOkOrNot=1;
 
 	auto changeFlag=[&](int sig){
 		if(sig!=-1)
-			flagOkOrNot=!flagOkOrNot;
+			flagOkOrNot=(flagOkOrNot+1)%3;
+
 		imshow("flag",flagImgs[(size_t)flagOkOrNot]);
 	};
 
@@ -278,6 +290,7 @@ int main_(int argc,char* argv[])
 
 	auto changeRcds=[&](int direction)
 	{
+		if(flagOkOrNot!=2)
 		if(direction>0)
 		{
 			for (int i = current_index; i < current_index+step && i<rcdLst.size(); i++)
@@ -287,7 +300,7 @@ int main_(int argc,char* argv[])
 
 			printf("From %d to %d marked %d\n",current_index,current_index+step,flagOkOrNot);
 		}
-		else
+		else 
 		{
 			for (int i = current_index; i > current_index-step && i>=0; --i)
 			{
